@@ -30,14 +30,14 @@ enum class Panel
 enum class InputFocus // markers for which the input box is currently in focus
 {
     NONE,
-    X_MESH, // number of models on the x axis
-    Z_MESH, // number of models on the z axis
-    X_MESH_SELECT, // size of selection in models on the x axis
-    Z_MESH_SELECT, // size of selection in models on the z axis
+    X_MESH, // number of models on the x axis -> Canvas 里的 x: 输入框
+    Z_MESH, // number of models on the z axis -> Canvas 里的 y: 输入框
+    X_MESH_SELECT, // size of selection in models on the x axis -> Tool 里的 x 输入框
+    Z_MESH_SELECT, // size of selection in models on the z axis -> Tool 里的 y 输入框
     STAMP_ANGLE, // the angle determining the gradient of the stamp tool
     STAMP_HEIGHT, // the maximum height of the stamp tool
-    SELECT_RADIUS, // size of the vertex selection / influence area
-    TOOL_STRENGTH, // tool strength
+    SELECT_RADIUS, // size of the vertex selection / influence area -> Tool 里的 Radius 输入框
+    TOOL_STRENGTH, // tool strength -> Tool 里的 Strength 输入框
     SAVE_MESH, // what to name your saved file as
     LOAD_MESH, // name of the file to load
     SAVE_MESH_HEIGHT, // the height to use as the scale when saving
@@ -209,14 +209,15 @@ static int cameraMoveControl[6] = { 'W', 'S', 'D', 'A', 'E', 'Q' };
 
 int main()
 {
-    const int windowWidth = 1800;
-    const int windowHeight = 900;
-    const int maxSteps = 10;   // number of changes to keep track of for the history
+    const int windowWidth = 1800; // 窗口宽度
+    const int windowHeight = 900; // 窗口高度
+    const int maxSteps = 10;   // number of changes to keep track of for the history，只存储 10 步回退
+    // 不清楚作用
     const int modelVertexWidth = 120; // 360x360 aprox max before fps <60 with raycollision
     const int modelVertexHeight = 120;
     const int modelWidth = 12;
     const int modelHeight = 12;
-    int stepIndex = 0; // the current location in history
+    int stepIndex = 0; // the current location in history，当前在第几步
     int canvasWidth = 0; // in number of models
     int canvasHeight = 0; // in number of models
     float timeCounter = 0; // used to track number of frames passed
@@ -251,7 +252,7 @@ int main()
 
     Vector2 lastRayHitLoc = { 0, 0 }; // coordinates of the model the mouse ray last hit
 
-    std::vector<HistoryStep> history;
+    std::vector<HistoryStep> history;  // 历史栈
     std::vector<VertexState> vertexSelection;
     std::vector<std::vector<Model>> models;      // 2d vector of all models
 
@@ -283,6 +284,7 @@ int main()
     ModelSelection terrainCells; // the models surrounding the player in character mode
 
     // ANCHORS
+    // 工具的定位基准点
     Vector2 meshSelectAnchor = { 0, 66 }; // location to which all mesh selection elements are relative
     Vector2 toolButtonAnchor = { 0, 300 }; // location to which all tool elements are relative
     Vector2 saveWindowAnchor = { windowWidth / 2 - 150, windowHeight / 2 - 75 };
@@ -334,7 +336,7 @@ int main()
     Rectangle rainbowTexBox = { 82, 428, 14, 14 };
 
     // CAMERA PANEL
-    Rectangle characterButton = { 63, 55, 33, 33 };
+    Rectangle characterButton = { 63, 55, 33, 33 }; // 橘黄色圆球背后的那个灰框
     Rectangle cameraSettingBox = { 10, 120, 14, 14 };
 
     // TOOL PANEL
@@ -382,6 +384,7 @@ int main()
     CameraSetting cameraSetting = CameraSetting::FREE;
     HeightMapMode heightMapMode = HeightMapMode::GRAYSCALE;
 
+    // raylib 初始化窗口
     InitWindow(windowWidth, windowHeight, "Pangea");
 
     Camera3D camera = { 0 };
@@ -399,6 +402,7 @@ int main()
 
     while (!WindowShouldClose())
     {
+        // 先不管这个模式里的东西
         if (cameraSetting == CameraSetting::CHARACTER)
         {
             UpdateCharacterCamera(&camera, models, terrainCells);
@@ -437,16 +441,20 @@ int main()
         }
         else
         {
+            // 确认没有输入的时候，才更新摄像机
             if (inputFocus == InputFocus::NONE) // dont move the camera if typing
             {
+                // camera 的 setting 是 free，input focus 是 None
                 if (cameraSetting == CameraSetting::FREE)
                     UpdateFreeCamera(&camera);
                 else if (cameraSetting == CameraSetting::TOP_DOWN)
                     UpdateTopDownCamera(&camera);
             }
 
+            // 不知道，hitPosition 是很复杂的关键逻辑
             RayHitInfo hitPosition;
             hitPosition.hit = false;
+            // 不懂这里的意思
             // vectors to hold the locations of the two ends of the stamp tool when stretch is activated
             Vector2 stamp1;
             Vector2 stamp2;
@@ -464,12 +472,14 @@ int main()
                 mouseDown = false;
             }
 
+            // 鼠标点击了，重置 input focus
             if (mousePressed)
             {
                 // if the mouse is pressed not over an input box, then the input focus should be none. always clear it and allow later code to set back to the correct focus if the cursor was actually over an input box
                 inputFocus = InputFocus::NONE;
             }
 
+            // 几个对话框
             if (showSaveWindow)
             {
                 if (CheckCollisionPointRec(mousePosition, saveWindowTextBox) && mousePressed)
@@ -691,18 +701,23 @@ int main()
                     inputFocus = InputFocus::DIRECTORY;
                 }
             }
+            // 鼠标点击 UI
             else if (CheckCollisionPointRec(mousePosition, UI))
             {
                 if (mousePressed)
+                // 如果当前 tick 中鼠标被按了一次
                 {
                     switch (panel)
                     {
                     case Panel::NONE:
                     {
+                        // 没有面板展开时
                         if (CheckCollisionPointRec(mousePosition, heightmapTab))
                         {
+                            // 点击 Canvas 按钮
                             panel = Panel::HEIGHTMAP;
 
+                            // 改变 Camera 和 Tools 的位置
                             cameraTab.y = 657;
                             toolsTab.y = 680;
                             panel1.height = 637;
@@ -710,13 +725,16 @@ int main()
                         }
                         else if (CheckCollisionPointRec(mousePosition, cameraTab))
                         {
+                            // 点击 Camera 按钮
                             panel = Panel::CAMERA;
 
+                            // 改变 Tools 的位置
                             panel2.height = 637;
                             toolsTab.y = 680;
                         }
                         else if (CheckCollisionPointRec(mousePosition, toolsTab))
                         {
+                            // 点击 Tools 按钮
                             panel = Panel::TOOLS;
                         }
 
@@ -983,6 +1001,7 @@ int main()
                         }
                         else if (CheckCollisionPointRec(mousePosition, characterButton))
                         {
+                            // 点击 Camera 面板中的橘黄色圆球
                             brush = BrushTool::NONE;
                             characterDrag = true;
                         }
@@ -2388,14 +2407,20 @@ int main()
                 }
             }
 
+            // 鼠标左键释放
             if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
             {
                 if (characterDrag)
                 {
+                    // 释放鼠标之前，如果是在拖动橘黄色圆球
+                    std::cout << "drag" << std::endl;
+                    // 释放之后，设置这个 flag 为 false
                     characterDrag = false;
 
+                    // 如果不是在 UI 面板释放的
                     if (!CheckCollisionPointRec(mousePosition, UI)) // if it wasnt released over the ui
                     {
+                        std::cout << "not" << std::endl;
                         Ray ray = GetMouseRay(GetMousePosition(), camera);
 
                         int modelx;
@@ -2403,6 +2428,7 @@ int main()
 
                         if (!models.empty())
                         {
+                            std::cout << "models not empty" << std::endl;
                             for (int i = 0; i < models.size(); i++) // test ray against all models
                             {
                                 for (int j = 0; j < models[i].size(); j++)
@@ -2421,8 +2447,11 @@ int main()
                             }
                         }
 
+                        // 看一下 hit position
                         if (hitPosition.hit)
                         {
+                            // 这里的意思应该是可以把橘黄球拖动到绘图区域，进入 Character 模式
+                            std::cout << "hit position hit" << std::endl;
                             terrainCells.selection.push_back(Vector2{ modelx, modely }); // first cell is whichever one the player begins in
                             FillTerrainCells(terrainCells, models);
 
@@ -2458,6 +2487,7 @@ int main()
                 }
             }
 
+            // ctrl z undo
             if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_Z) && stepIndex > 0 && !history.empty()) // undo key
             {
                 for (int i = 0; i < history[stepIndex - 1].startingVertices.size(); i++) // reinstate the previous state of the mesh as recorded by the startingVertices at stepIndex - 1
@@ -2483,7 +2513,7 @@ int main()
 
                 stepIndex--;
             }
-
+            // ctrl x redo
             if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_X) && !history.empty() && stepIndex < (int)history.size()) // redo key
             {
                 for (int i = 0; i < history[stepIndex].endingVertices.size(); i++) // reinstate the previous state of the mesh as recorded by the endingVertices at stepIndex
@@ -2509,12 +2539,12 @@ int main()
 
                 stepIndex++;
             }
-
+            // ctrl d deselect
             if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_D) && !vertexSelection.empty()) // deselect
             {
                 vertexSelection.clear();
             }
-
+            // ctrl t update texture
             if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_T)) // hotkey for updating the texture
             {
                 float maxY = models[0][0].meshes[0].vertices[1]; // start with the first y value;
@@ -2549,6 +2579,7 @@ int main()
                 UpdateHeightmap(models, modelVertexWidth, modelVertexHeight, highestY, lowestY, heightMapMode);
             }
 
+            // 用户输入
             switch (inputFocus)
             {
             case InputFocus::NONE:
@@ -2851,6 +2882,7 @@ int main()
             }
             }
 
+            // 前面是用户输入
             /**********************************************************************************************************************************************************************
                 DRAWING
             **********************************************************************************************************************************************************************/
@@ -2861,6 +2893,9 @@ int main()
 
             BeginMode3D(camera);
 
+            // 画模型
+            // model 是什么
+            // models 是个二维矩阵
             if (!models.empty()) // draw models
             {
                 for (int i = 0; i < models.size(); i++)
@@ -2872,8 +2907,12 @@ int main()
                 }
             }
 
+            // 画个网格
             if (models.empty()) DrawGrid(100, 1.0f);
 
+            // TODO 这里不懂
+            // 像是顶点
+            // 这个应该是画模型相关的东西
             if (!vertexSelection.empty()) // draw every selected vertex
             {
                 Color vertexColor;
@@ -3007,24 +3046,34 @@ int main()
             */
 
             DrawFPS(windowWidth - 30, 8);
+            // UI 面板
+            // [A1] 是 UI 面板
             DrawRectangleRec(UI, Color{ 200, 200, 200, 50 });
 
             Color panelColor = { 200, 200, 200, 150 };
+//            Color panelColor = { 255, 0, 0, 255};
 
+            // 这是一个大 switch case，panel 表示当前展开的是哪个面板，有三个值：None，Heightmap，Camera，Tools
             switch (panel)
             {
             case Panel::NONE:
             {
+                // 如果没有打开的面板
+                // Canvas 按钮
                 DrawRectangleRec(heightmapTab, GRAY);
                 DrawTextRec(GetFontDefault(), "Canvas", Rectangle{ heightmapTab.x + 3, heightmapTab.y + 3, heightmapTab.width - 2, heightmapTab.height - 2 }, 15, 1.f, false, BLACK);
 
+                // padding
                 DrawRectangleRec(panel1, panelColor);
 
+                // Camera 按钮
                 DrawRectangleRec(cameraTab, GRAY);
                 DrawTextRec(GetFontDefault(), "Camera", Rectangle{ cameraTab.x + 3, cameraTab.y + 3, cameraTab.width - 2, cameraTab.height - 2 }, 15, 1.f, false, BLACK);
 
+                // padding
                 DrawRectangleRec(panel2, panelColor);
 
+                // Tools 按钮
                 DrawRectangleRec(toolsTab, GRAY);
                 DrawTextRec(GetFontDefault(), "Tools", Rectangle{ toolsTab.x + 3, toolsTab.y + 3, toolsTab.width - 2, toolsTab.height - 2 }, 15, 1.f, false, BLACK);
 
@@ -3032,42 +3081,50 @@ int main()
             }
             case Panel::HEIGHTMAP:
             {
+                // Canvas
                 DrawRectangleRec(heightmapTab, GRAY);
                 DrawTextRec(GetFontDefault(), "Canvas", Rectangle{ heightmapTab.x + 3, heightmapTab.y + 3, heightmapTab.width - 2, heightmapTab.height - 2 }, 15, 1.f, false, BLACK);
-
+                // padding
                 DrawRectangleRec(panel1, panelColor);
-
+                // Camera
                 DrawRectangleRec(cameraTab, GRAY);
                 DrawTextRec(GetFontDefault(), "Camera", Rectangle{ cameraTab.x + 3, cameraTab.y + 3, cameraTab.width - 2, cameraTab.height - 2 }, 15, 1.f, false, BLACK);
-
+                // padding
                 DrawRectangleRec(panel2, panelColor);
-
+                // Tools
                 DrawRectangleRec(toolsTab, GRAY);
                 DrawTextRec(GetFontDefault(), "Tools", Rectangle{ toolsTab.x + 3, toolsTab.y + 3, toolsTab.width - 2, toolsTab.height - 2 }, 15, 1.f, false, BLACK);
-
+                // Export HeightMap
                 DrawRectangleRec(exportButton, GRAY);
+                // Generate Mesh
                 DrawRectangleRec(meshGenButton, GRAY);
+                // Load HeightMap
                 DrawRectangleRec(loadButton, GRAY);
+                // Update Texture
                 DrawRectangleRec(updateTextureButton, GRAY);
+                // Change Directory
                 DrawRectangleRec(directoryButton, GRAY);
                 DrawTextRec(GetFontDefault(), "Update Texture", Rectangle{ updateTextureButton.x + 5, updateTextureButton.y + 1, updateTextureButton.width - 2, updateTextureButton.height - 2 }, 15, 1.f, true, BLACK);
                 DrawTextRec(GetFontDefault(), "Generate Mesh", Rectangle{ meshGenButton.x + 5, meshGenButton.y + 1, meshGenButton.width - 2, meshGenButton.height - 2 }, 15, 1.f, true, BLACK);
                 DrawTextRec(GetFontDefault(), "Export Heightmap", Rectangle{ exportButton.x + 5, exportButton.y + 1, exportButton.width - 2, exportButton.height - 2 }, 15, 1.f, true, BLACK);
                 DrawTextRec(GetFontDefault(), "Load Heightmap", Rectangle{ loadButton.x + 5, loadButton.y + 1, loadButton.width - 2, loadButton.height - 2 }, 15, 1.f, true, BLACK);
                 DrawTextRec(GetFontDefault(), "Change Directory", Rectangle{ directoryButton.x + 5, directoryButton.y + 1, directoryButton.width - 2, directoryButton.height - 2 }, 15, 1.f, true, BLACK);
-
+                // X: Y:
                 DrawRectangleRec(xMeshBox, WHITE);
                 DrawRectangleRec(zMeshBox, WHITE);
                 DrawText("X:", 14, 33, 15, BLACK);
                 DrawText("Y:", 14, 58, 15, BLACK);
-
+                // Grayscale:
                 DrawRectangleRec(grayscaleTexBox, WHITE);
+                // Slope:
                 DrawRectangleRec(slopeTexBox, WHITE);
+                // Rainbow:
                 DrawRectangleRec(rainbowTexBox, WHITE);
                 DrawText("Grayscale:", 5, 391, 11, BLACK);
                 DrawText("Slope:", 5, 410, 11, BLACK);
                 DrawText("Rainbow:", 5, 429, 11, BLACK);
 
+                // 三种模式
                 switch (heightMapMode)
                 {
                 case HeightMapMode::GRAYSCALE:
@@ -3087,11 +3144,13 @@ int main()
                 }
                 }
 
+                // 正常情况下是没有框的，focus 了才会有一个黑色的线框
                 if (inputFocus == InputFocus::X_MESH)
                     DrawRectangleLinesEx(xMeshBox, 1, BLACK);
                 else if (inputFocus == InputFocus::Z_MESH)
                     DrawRectangleLinesEx(zMeshBox, 1, BLACK);
 
+                // 把值画进框里
                 PrintBoxInfo(xMeshBox, inputFocus, InputFocus::X_MESH, xMeshString, canvasWidth);
                 PrintBoxInfo(zMeshBox, inputFocus, InputFocus::Z_MESH, zMeshString, canvasHeight);
 
@@ -3099,32 +3158,37 @@ int main()
             }
             case Panel::CAMERA:
             {
+                // 未展开的 Canvas 面板按钮
                 DrawRectangleRec(heightmapTab, GRAY);
                 DrawTextRec(GetFontDefault(), "Canvas", Rectangle{ heightmapTab.x + 3, heightmapTab.y + 3, heightmapTab.width - 2, heightmapTab.height - 2 }, 15, 1.f, false, BLACK);
-
+                // padding
                 DrawRectangleRec(panel1, panelColor);
-
+                // 展开的 Camera 按钮
                 DrawRectangleRec(cameraTab, GRAY);
                 DrawTextRec(GetFontDefault(), "Camera", Rectangle{ cameraTab.x + 3, cameraTab.y + 3, cameraTab.width - 2, cameraTab.height - 2 }, 15, 1.f, false, BLACK);
-
+                // padding
                 DrawRectangleRec(panel2, panelColor);
-
+                // 未展开的 Tools 面板按钮
                 DrawRectangleRec(toolsTab, GRAY);
                 DrawTextRec(GetFontDefault(), "Tools", Rectangle{ toolsTab.x + 3, toolsTab.y + 3, toolsTab.width - 2, toolsTab.height - 2 }, 15, 1.f, false, BLACK);
-
+                // Character Camera 文本和 Drag & Drop 文本
                 DrawRectangleRec(characterButton, GRAY);
                 DrawText("Character", 4, 60, 11, BLACK);
                 DrawText("Camera", 4, 72, 11, BLACK);
                 DrawText("Drag & Drop", 15, 92, 11, BLACK);
-
+                // Top Down 复选框
                 DrawRectangleRec(cameraSettingBox, WHITE);
                 DrawText("Top Down", 30, 122, 11, BLACK);
 
                 //DrawText("Camera Sensitivity:", 5, 110, 11, BLACK);
 
+                // 如果 Top Down 复选框选择了，那么就在这里画一个 + 号
                 if (cameraSetting == CameraSetting::TOP_DOWN)
                     DrawText("+", cameraSettingBox.x + 2, cameraSettingBox.y - 2, 20, BLACK);
 
+                // characterDrag 不太懂
+                // 这个是拖 Camera 面板里的那个橘黄色圆球用的
+                // 这里不画了是因为 characterButton 是一个固定的位置，这个圆球在拖动时需要根据 A0 处的代码来画
                 if (!characterDrag) // dont draw the circle in the rectangle if it's being dragged
                     DrawCircle(characterButton.x + (characterButton.width / 2 + 1), characterButton.y + (characterButton.height / 2 + 1), characterButton.width / 2 - 4, ORANGE);
 
@@ -3132,21 +3196,23 @@ int main()
             }
             case Panel::TOOLS:
             {
+                // Canvas
                 DrawRectangleRec(heightmapTab, GRAY);
                 DrawTextRec(GetFontDefault(), "Canvas", Rectangle{ heightmapTab.x + 3, heightmapTab.y + 3, heightmapTab.width - 2, heightmapTab.height - 2 }, 15, 1.f, false, BLACK);
-
+                // padding
                 DrawRectangleRec(panel1, panelColor);
-
+                // Camera
                 DrawRectangleRec(cameraTab, GRAY);
                 DrawTextRec(GetFontDefault(), "Camera", Rectangle{ cameraTab.x + 3, cameraTab.y + 3, cameraTab.width - 2, cameraTab.height - 2 }, 15, 1.f, false, BLACK);
-
+                // padding
                 DrawRectangleRec(panel2, panelColor);
-
+                // Tools
                 DrawRectangleRec(toolsTab, GRAY);
                 DrawTextRec(GetFontDefault(), "Tools", Rectangle{ toolsTab.x + 3, toolsTab.y + 3, toolsTab.width - 2, toolsTab.height - 2 }, 15, 1.f, false, BLACK);
-
+                // padding
                 DrawRectangleRec(panel3, panelColor);
-
+                // 五个工具的按钮
+                // 高亮五个颜色色块
                 switch (brush) // highlight the selected tool
                 {
                 case BrushTool::NONE:
@@ -3167,14 +3233,14 @@ int main()
                     DrawRectangle(selectToolButton.x - 7, selectToolButton.y - 7, selectToolButton.width + 14, smoothToolButton.height + 14, WHITE);
                     break;
                 }
-
+                // 显示五个颜色色块
                 DrawRectangleRec(elevToolButton, RED);
                 DrawRectangleRec(smoothToolButton, BLUE);
                 DrawRectangleRec(flattenToolButton, ORANGE);
                 DrawRectangleRec(stampToolButton, VIOLET);
                 DrawRectangleRec(selectToolButton, GREEN);
                 DrawRectangleRec(toolText, WHITE);
-
+                // 鼠标放在颜色色块上的时候，显示工具按钮的名称
                 // check what text should be displayed in the toolText
                 if (CheckCollisionPointRec(mousePosition, elevToolButton))
                 {
@@ -3196,6 +3262,7 @@ int main()
                 {
                     DrawTextRec(GetFontDefault(), "Select", Rectangle{ toolText.x + 3, toolText.y + 3, toolText.width - 2, toolText.height - 2 }, 15, 1.0f, false, BLACK);
                 }
+                // 选择工具后，名称常显
                 else if (brush == BrushTool::ELEVATION)
                 {
                     DrawTextRec(GetFontDefault(), "Elevation", Rectangle{ toolText.x + 3, toolText.y + 3, toolText.width - 2, toolText.height - 2 }, 15, 1.0f, false, BLACK);
@@ -3216,9 +3283,10 @@ int main()
                 {
                     DrawTextRec(GetFontDefault(), "Select", Rectangle{ toolText.x + 3, toolText.y + 3, toolText.width - 2, toolText.height - 2 }, 15, 1.0f, false, BLACK);
                 }
-
+                // 下方的工具选项
                 if (brush == BrushTool::SELECT)
                 {
+                    // Selection M 这个按钮，选择的时候变红，不选变灰
                     if (selectionMask)
                         DrawRectangleRec(selectionMaskButton, RED);
                     else
@@ -3279,6 +3347,7 @@ int main()
                     if (useGhostMesh)
                         DrawText("+", ghostMeshBox.x + 2, ghostMeshBox.y - 2, 20, BLACK);
 
+                    // 点击输入框，显示空白输入框
                     if (inputFocus == InputFocus::STAMP_ANGLE)
                         DrawRectangleLinesEx(stampAngleBox, 1, BLACK);
                     else if (inputFocus == InputFocus::STAMP_HEIGHT)
@@ -3294,6 +3363,7 @@ int main()
                     else if (inputFocus == InputFocus::STAMP_OFFSET)
                         DrawRectangleLinesEx(stampOffsetBox, 1, BLACK);
 
+                    // 画输入框输入的内容
                     PrintBoxInfo(stampAngleBox, inputFocus, InputFocus::STAMP_ANGLE, stampAngleString, stampAngle);
                     PrintBoxInfo(stampHeightBox, inputFocus, InputFocus::STAMP_HEIGHT, stampHeightString, stampHeight);
                     PrintBoxInfo(innerRadiusBox, inputFocus, InputFocus::INNER_RADIUS, innerRadiusString, innerRadius);
@@ -3313,18 +3383,19 @@ int main()
 
                 DrawLine(6, 180, 95, 180, BLACK);
 
-                DrawRectangleRec(xMeshSelectBox, WHITE);
-                DrawRectangleRec(zMeshSelectBox, WHITE);
-                DrawRectangleRec(meshSelectButton, GRAY);
-                DrawRectangleRec(meshSelectUpButton, GRAY);
-                DrawRectangleRec(meshSelectLeftButton, GRAY);
-                DrawRectangleRec(meshSelectRightButton, GRAY);
-                DrawRectangleRec(meshSelectDownButton, GRAY);
+                DrawRectangleRec(xMeshSelectBox, WHITE); // x:
+                DrawRectangleRec(zMeshSelectBox, WHITE); // y:
+                DrawRectangleRec(meshSelectButton, GRAY); // mesh select
+                DrawRectangleRec(meshSelectUpButton, GRAY); // up
+                DrawRectangleRec(meshSelectLeftButton, GRAY); // left
+                DrawRectangleRec(meshSelectRightButton, GRAY); // right
+                DrawRectangleRec(meshSelectDownButton, GRAY); // down
 
                 DrawText("X:", meshSelectAnchor.x + 5, meshSelectAnchor.y + 12, 15, BLACK);
                 DrawText("Y:", meshSelectAnchor.x + 53, meshSelectAnchor.y + 12, 15, BLACK);
                 DrawTextRec(GetFontDefault(), "Mesh Select", Rectangle{ meshSelectButton.x + 3, meshSelectButton.y + 3, meshSelectButton.width - 2, meshSelectButton.height - 2 }, 13, 1.0f, false, BLACK);
 
+                // 下面的六个输入项
                 DrawRectangleRec(selectRadiusBox, WHITE);
                 DrawRectangleRec(toolStrengthBox, WHITE);
                 DrawRectangleRec(raiseOnlyBox, WHITE);
@@ -3338,6 +3409,7 @@ int main()
                 DrawText("Cursor Ray:", toolButtonAnchor.x + 5, toolButtonAnchor.y - 37, 11, BLACK);
                 DrawText("Edit Queue:", toolButtonAnchor.x + 5, toolButtonAnchor.y - 18, 11, BLACK);
 
+                // 点击 collisionTypeBox 的时候，可以通过 rayCollision2d flag 来切换 2d 3d 模式
                 if (rayCollision2d)
                     DrawText("2D", collisionTypeBox.x + 1, collisionTypeBox.y + 2, 10, BLACK);
                 else
@@ -3348,9 +3420,6 @@ int main()
 
                 if (lowerOnly)
                     DrawText("+", lowerOnlyBox.x + 2, lowerOnlyBox.y - 2, 20, BLACK);
-
-                if (raiseOnly)
-                    DrawText("+", raiseOnlyBox.x + 2, raiseOnlyBox.y - 2, 20, BLACK);
 
                 if (editQueue)
                     DrawText("+", editQueueBox.x + 2, editQueueBox.y - 2, 20, RED);
@@ -3369,6 +3438,7 @@ int main()
                 PrintBoxInfo(toolStrengthBox, inputFocus, InputFocus::TOOL_STRENGTH, toolStrengthString, toolStrength);
                 PrintBoxInfo(selectRadiusBox, inputFocus, InputFocus::SELECT_RADIUS, selectRadiusString, selectRadius);
 
+                // 四向按键上的箭头
                 DrawTriangle(Vector2{ meshSelectAnchor.x + 58, meshSelectAnchor.y + 80 }, Vector2{ meshSelectAnchor.x + 51, meshSelectAnchor.y + 68 }, Vector2{ meshSelectAnchor.x + 43, meshSelectAnchor.y + 80 }, BLACK);
                 DrawTriangle(Vector2{ meshSelectAnchor.x + 33, meshSelectAnchor.y + 92 }, Vector2{ meshSelectAnchor.x + 33, meshSelectAnchor.y + 79 }, Vector2{ meshSelectAnchor.x + 18, meshSelectAnchor.y + 85 }, BLACK);
                 DrawTriangle(Vector2{ meshSelectAnchor.x + 84, meshSelectAnchor.y + 85 }, Vector2{ meshSelectAnchor.x + 68, meshSelectAnchor.y + 79 }, Vector2{ meshSelectAnchor.x + 68, meshSelectAnchor.y + 92 }, BLACK);
@@ -3487,6 +3557,7 @@ int main()
                 }
             }
 
+            // [A0] 如果是这个状态，那么就跟随鼠标位置来移动，上面的位置不画
             if (characterDrag) // draw the character camera icon at the mouse cursor if it's being dragged
             {
                 DrawCircle(mousePosition.x, mousePosition.y, characterButton.width / 2 - 4, ORANGE);
