@@ -464,9 +464,12 @@ int main()
             ModelSelection editSelection; // models that are being edited this tick
 
             Vector2 mousePosition = GetMousePosition();
+            // 鼠标左键是否被按过
             bool mousePressed = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+            // 鼠标左键是否被按住
             bool mouseDown = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
 
+            // 鼠标按下并且 R V G 有一个键被按下，这里重置 mouseDown 的原因不太清楚
             if (mouseDown && (IsKeyDown(KEY_R) || IsKeyDown(KEY_V)) || IsKeyDown(KEY_G)) // check if keys are down that preclude mouse click edits from happening
             {
                 mouseDown = false;
@@ -704,9 +707,10 @@ int main()
             // 鼠标点击 UI
             else if (CheckCollisionPointRec(mousePosition, UI))
             {
+                // 如果按下 UI
                 if (mousePressed)
-                // 如果当前 tick 中鼠标被按了一次
                 {
+                    // 按下了不同的 panel
                     switch (panel)
                     {
                     case Panel::NONE:
@@ -798,29 +802,33 @@ int main()
                         }
                         else if (CheckCollisionPointRec(mousePosition, meshGenButton) && (!xMeshString.empty() || canvasWidth > 0) && (!zMeshString.empty() || canvasHeight > 0)) // add or remove models
                         {
+                            // x y 输入的数字
                             int xInput;
                             int zInput;
-
+                            // 如果有用户输入，xInput 就取用户输入，如果没有，就取 canvasWidth
                             if (!xMeshString.empty())
                                 xInput = std::stoi(xMeshString);
                             else
                                 xInput = canvasWidth;
-
+                            // 如果有用户输入，zInput 就取用户输入，如果没有，就取 canvasHeight
                             if (!zMeshString.empty())
                                 zInput = std::stoi(zMeshString);
                             else
                                 zInput = canvasHeight;
-
+                            // x y 和 canvas 尺寸之间的差值，canvas 尺寸小于输入就是正的
                             int xDifference = -(canvasWidth - xInput); // negate the difference so that positive is how many to add, negative to subtract
                             int zDifference = -(canvasHeight - zInput);
-
+                            // 正值，需要扩大
+                            // models 存储的是纵向的数组，models[0] 就是第一列，models 是所有的列
                             if (xDifference > 0)
                             {
+                                // xInput > canvasWidth
                                 models.reserve(xInput);
                                 models.resize(xInput);
                             }
                             else if (xDifference < 0)
                             {
+                                // xInput < canvasWidth，删除多余列的模型
                                 for (int i = models.size() + xDifference; i < models.size(); i++) // unload models from memory
                                 {
                                     for (int j = 0; j < models[i].size(); j++)
@@ -834,21 +842,24 @@ int main()
                                 history.clear(); // clear history if the canvas is shrunk so that undo operations dont go out of bounds
                                 stepIndex = 0;
                             }
-
+                            // width 设置成输入
                             canvasWidth = xInput;
-
+                            // 如果 canvasHeight > zInput，重置 history
                             if (zDifference < 0)
                             {
                                 history.clear(); // clear history if the canvas is shrunk so that undo operations dont go out of bounds
                                 stepIndex = 0;
                             }
 
+                            // 如果 canvasWidth 或者 xInput > 0，这样才能处理 canvasHeight
                             if (canvasWidth)
                             {
+                                // 新列高
                                 int newLength = canvasHeight + zDifference;
-
+                                // 循环列
                                 for (int i = 0; i < canvasWidth; i++)
                                 {
+                                    // 大于新列高的就删掉
                                     if (models[i].size() > newLength) // z will need to be cut in existing columns, but may have to be expanded in new ones
                                     {
                                         for (int j = newLength; j < models[i].size(); j++) // unload models from memory
@@ -858,18 +869,22 @@ int main()
 
                                         models[i].erase(models[i].begin() + newLength, models[i].end());
                                     }
+                                    // 小于新列高
                                     else
                                     {
+                                        // 扩容
                                         models[i].reserve(newLength);
-
+                                        // 这列不够时
                                         while (models[i].size() < newLength)
                                         {
+                                            // 此列高
                                             int j = models[i].size();
-
-                                            Image tempImage = GenImageColor(modelVertexWidth, modelVertexHeight, BLACK);
-                                            Model model = LoadModelFromMesh(GenMeshHeightmap(tempImage, (Vector3) { modelWidth, 0, modelHeight }));
+                                            // 生成 120 * 120 的黑色图片
+                                            Image tempImage = GenImageColor(modelVertexWidth, modelVertexHeight, BLACK); // width 和 height 默认是 120
+                                            // 生成模型，用刚才的图片生成一个 mesh，大小是 12 * 12
+                                            Model model = LoadModelFromMesh(GenMeshHeightmap(tempImage, (Vector3) { modelWidth, 0, modelHeight })); // width 和 height 默认是 12
                                             UnloadImage(tempImage);
-
+                                            // 生成好了一个 model
                                             Color* pixels = GenHeightmap(model, modelVertexWidth, modelVertexHeight, highestY, lowestY, heightMapMode);
                                             Image image = LoadImageEx(pixels, modelVertexWidth - 1, modelVertexHeight - 1);
                                             Texture2D tex = LoadTextureFromImage(image); // create a texture from the heightmap. height and width -1 so that pixels and polys are 1:1
@@ -1190,11 +1205,11 @@ int main()
                                 {
                                     for (int j = 0; j < newHeight; j++)
                                     {
-                                        modelSelection.selection.push_back(Vector2{ i, j });
+                                        modelSelection.selection.push_back(Vector2{ static_cast<float>(i), static_cast<float>(j) });
                                     }
                                 }
 
-                                modelSelection.bottomRight = Vector2{ newWidth - 1, newHeight - 1 };
+                                modelSelection.bottomRight = Vector2{ static_cast<float>(newWidth - 1), static_cast<float>(newHeight - 1) };
                                 modelSelection.topLeft = Vector2{ 0, 0 };
                                 modelSelection.width = newWidth;
                                 modelSelection.height = newHeight;
@@ -1583,13 +1598,14 @@ int main()
                     }
                 }
             }
+            // 如果鼠标不在 UI 工具栏上
             else if (brush != BrushTool::NONE) // if mouse is not over a 2d element --------------------------------------------------------------------------------------------------
             {
                 Ray ray = GetMouseRay(GetMousePosition(), camera);
 
+                // 扩大缩小 selectRadius
                 if (IsKeyDown(KEY_LEFT_BRACKET) && selectRadius > 0)
                     selectRadius -= 0.04f;
-
                 if (IsKeyDown(KEY_RIGHT_BRACKET))
                     selectRadius += 0.04f;
 
@@ -2452,7 +2468,7 @@ int main()
                         {
                             // 这里的意思应该是可以把橘黄球拖动到绘图区域，进入 Character 模式
                             std::cout << "hit position hit" << std::endl;
-                            terrainCells.selection.push_back(Vector2{ modelx, modely }); // first cell is whichever one the player begins in
+                            terrainCells.selection.push_back(Vector2{ static_cast<float>(modelx), static_cast<float>(modely) }); // first cell is whichever one the player begins in
                             FillTerrainCells(terrainCells, models);
 
                             camera.position = Vector3{ hitPosition.position.x, hitPosition.position.y + playerEyesHeight, hitPosition.position.z };
@@ -3756,10 +3772,15 @@ Color* GenHeightmap(const Model& model, int modelVertexWidth, int modelVertexHei
 {
     // this version of GenHeightMap is used only for texturing the models in the editor, not exporting. it matches pixels 1:1 with polys rather than vertices
 
+    // 120 * 120 的像素点矩阵
     Color* pixels = (Color*)RL_MALLOC((modelVertexWidth - 1) * (modelVertexHeight - 1) * sizeof(Color));
-
+    // vertices 里的是顶点坐标 [x, y, z]
+    // vertexCount 是顶点数量
+    // vertices 里的元素数量就是 vertexCount * 3
     for (int i = 0; i < (model.meshes[0].vertexCount * 3) - 2; i += 3) // find if there is a new highestY and/or lowestY
     {
+        // model.meshes[0].vertices[i + 1] 是获取 y
+        // i -> x, i + 1 -> y, i + 2 -> z
         if (model.meshes[0].vertices[i + 1] > highestY)
             highestY = model.meshes[0].vertices[i + 1];
 
@@ -4395,7 +4416,7 @@ void UpdateCharacterCamera(Camera* camera, const std::vector<std::vector<Model>>
     if (hitPosition.hit && modelx != terrainCells.selection[0].x || modely != terrainCells.selection[0].y) // if player is found on a cell other than the center, readjust the terrain cells to the new center
     {
         terrainCells.selection.clear();
-        terrainCells.selection.push_back(Vector2{ modelx, modely });
+        terrainCells.selection.push_back(Vector2{ static_cast<float>(modelx), static_cast<float>(modely) });
         FillTerrainCells(terrainCells, models);
     }
 
