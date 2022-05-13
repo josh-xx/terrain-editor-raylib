@@ -850,7 +850,6 @@ int main()
                                 history.clear(); // clear history if the canvas is shrunk so that undo operations dont go out of bounds
                                 stepIndex = 0;
                             }
-
                             // 如果 canvasWidth 或者 xInput > 0，这样才能处理 canvasHeight
                             if (canvasWidth)
                             {
@@ -918,7 +917,7 @@ int main()
                                     rlUpdateBuffer(models[i][j].meshes[0].vboId[2], models[i][j].meshes[0].vertices, models[i][j].meshes[0].vertexCount * 3 * sizeof(float));    // Update vertex normals 
                                 }
                             }
-
+                            // 清空两个字符串 buffer
                             xMeshString.clear();
                             zMeshString.clear();
                         }
